@@ -35,3 +35,4 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 .history/.baseline-d2
+.baseline-d2
