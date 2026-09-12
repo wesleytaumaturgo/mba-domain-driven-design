@@ -13,6 +13,13 @@ import { Event } from '../../domain/entities/event.entity';
 import { SpotReservation } from '../../domain/entities/spot-reservation.entity';
 import { Order, OrderStatus } from '../../domain/entities/order.entity';
 import { OrderIdSchemaType } from './types/order-id.schema-type';
+import { WaitingList } from '../../domain/entities/waiting-list.entity';
+import {
+  WaitingListEntry,
+  WaitingListEntryStatus,
+} from '../../domain/entities/waiting-list-entry';
+import { WaitingListIdSchemaType } from './types/waiting-list-id.schema-type';
+import { WaitingListEntryIdSchemaType } from './types/waiting-list-entry-id.schema-type';
 
 export const PartnerSchema = new EntitySchema<Partner>({
   class: Partner,
@@ -162,6 +169,64 @@ export const OrderSchema = new EntitySchema<Order>({
       mapToPk: true,
       inherited: true,
       customType: new EventSpotIdSchemaType(),
+    },
+  },
+});
+
+export const WaitingListEntrySchema = new EntitySchema<WaitingListEntry>({
+  class: WaitingListEntry,
+  tableName: 'waiting_list_entry',
+  properties: {
+    id: {
+      customType: new WaitingListEntryIdSchemaType(),
+      primary: true,
+    },
+    customer_id: {
+      reference: 'm:1',
+      entity: () => Customer,
+      mapToPk: true,
+      inherited: true,
+      customType: new CustomerIdSchemaType(),
+    },
+    status: { enum: true, items: () => WaitingListEntryStatus },
+    position: { type: 'number' },
+    waiting_list_id: {
+      reference: 'm:1',
+      entity: () => WaitingList,
+      hidden: true,
+      mapToPk: true,
+      customType: new WaitingListIdSchemaType(),
+    },
+  },
+});
+
+export const WaitingListSchema = new EntitySchema<WaitingList>({
+  class: WaitingList,
+  tableName: 'waiting_list',
+  properties: {
+    id: {
+      customType: new WaitingListIdSchemaType(),
+      primary: true,
+    },
+    event_id: {
+      reference: 'm:1',
+      entity: () => Event,
+      mapToPk: true,
+      customType: new EventIdSchemaType(),
+    },
+    section_id: {
+      reference: 'm:1',
+      entity: () => EventSection,
+      mapToPk: true,
+      customType: new EventSectionIdSchemaType(),
+    },
+    entries: {
+      reference: '1:m',
+      entity: () => WaitingListEntry,
+      mappedBy: (entry) => entry.waiting_list_id,
+      eager: true,
+      cascade: [Cascade.ALL],
+      orderBy: { position: 'ASC' },
     },
   },
 });
