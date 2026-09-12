@@ -37,6 +37,11 @@ import { ApplicationService } from '../@core/common/application/application.serv
 import { DomainEventManager } from '../@core/common/domain/domain-event-manager';
 import { PartnerCreated } from '../@core/events/domain/events/domain-events/partner-created.event';
 import { MyHandlerHandler } from '../@core/events/application/handlers/my-handler.handler';
+import { ReleaseSpotOnOrderCancelledHandler } from '../@core/events/application/handlers/release-spot-on-order-cancelled.handler';
+import { OfferSpotToWaitingCustomerHandler } from '../@core/events/application/handlers/offer-spot-to-waiting-customer.handler';
+import { IEventRepository } from '../@core/events/domain/repositories/event-repository.interface';
+import { ISpotReservationRepository } from '../@core/events/domain/repositories/spot-reservation-repository.interface';
+import { IWaitingListRepository } from '../@core/events/domain/repositories/waiting-list-repository.interface';
 import { ModuleRef } from '@nestjs/core';
 import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -155,6 +160,36 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       ) => new MyHandlerHandler(partnerRepo, domainEventManager),
       inject: ['IPartnerRepository', DomainEventManager],
     },
+    {
+      provide: ReleaseSpotOnOrderCancelledHandler,
+      useFactory: (
+        eventRepo: IEventRepository,
+        spotReservationRepo: ISpotReservationRepository,
+        domainEventManager: DomainEventManager,
+      ) =>
+        new ReleaseSpotOnOrderCancelledHandler(
+          eventRepo,
+          spotReservationRepo,
+          domainEventManager,
+        ),
+      inject: [
+        'IEventRepository',
+        'ISpotReservationRepository',
+        DomainEventManager,
+      ],
+    },
+    {
+      provide: OfferSpotToWaitingCustomerHandler,
+      useFactory: (
+        waitingListRepo: IWaitingListRepository,
+        domainEventManager: DomainEventManager,
+      ) =>
+        new OfferSpotToWaitingCustomerHandler(
+          waitingListRepo,
+          domainEventManager,
+        ),
+      inject: ['IWaitingListRepository', DomainEventManager],
+    },
   ],
   controllers: [
     PartnersController,
@@ -183,6 +218,24 @@ export class EventsModule implements OnModuleInit {
         await handler.handle(event);
       });
     });
+    ReleaseSpotOnOrderCancelledHandler.listensTo().forEach(
+      (eventName: string) => {
+        this.domainEventManager.register(eventName, async (event) => {
+          const handler: ReleaseSpotOnOrderCancelledHandler =
+            await this.moduleRef.resolve(ReleaseSpotOnOrderCancelledHandler);
+          await handler.handle(event);
+        });
+      },
+    );
+    OfferSpotToWaitingCustomerHandler.listensTo().forEach(
+      (eventName: string) => {
+        this.domainEventManager.register(eventName, async (event) => {
+          const handler: OfferSpotToWaitingCustomerHandler =
+            await this.moduleRef.resolve(OfferSpotToWaitingCustomerHandler);
+          await handler.handle(event);
+        });
+      },
+    );
     this.domainEventManager.registerForIntegrationEvent(
       PartnerCreated.name,
       async (event) => {
