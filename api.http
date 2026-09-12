@@ -100,3 +100,9 @@ Content-Type: application/json
     "spot_id": "96298e63-5a38-4352-b97d-322259f10921",
     "card_token": "tok_visa"
 }
+
+###
+@order_id = 192bcb2c-7edb-4359-871e-ddabf784d0e0
+
+###
+POST http://localhost:3000/events/{{event_id}}/orders/{{order_id}}/cancel

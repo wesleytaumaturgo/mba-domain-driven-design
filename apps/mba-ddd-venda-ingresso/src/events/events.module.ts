@@ -16,12 +16,14 @@ import { EntityManager } from '@mikro-orm/mysql';
 import { CustomerMysqlRepository } from '../@core/events/infra/db/repositories/customer-mysql.repository';
 import { EventMysqlRepository } from '../@core/events/infra/db/repositories/event-mysql.repository';
 import { OrderMysqlRepository } from '../@core/events/infra/db/repositories/order-mysql.repository';
+import { IOrderRepository } from '../@core/events/domain/repositories/order-repository.interface';
 import { SpotReservationMysqlRepository } from '../@core/events/infra/db/repositories/spot-reservation-mysql.repository';
 import { WaitingListMysqlRepository } from '../@core/events/infra/db/repositories/waiting-list-mysql.repository';
 import { PartnerService } from '../@core/events/application/partner.service';
 import { CustomerService } from '../@core/events/application/customer.service';
 import { EventService } from '../@core/events/application/event.service';
 import { OrderService } from '../@core/events/application/order.service';
+import { OrderCancellationService } from '../@core/events/application/order-cancellation.service';
 import { PaymentGateway } from '../@core/events/application/payment.gateway';
 import { IPartnerRepository } from '../@core/events/domain/repositories/partner-repository.interface';
 import { PartnersController } from './partners/partners.controller';
@@ -89,6 +91,14 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       provide: 'IWaitingListRepository',
       useFactory: (em: EntityManager) => new WaitingListMysqlRepository(em),
       inject: [EntityManager],
+    },
+    {
+      provide: OrderCancellationService,
+      useFactory: (
+        orderRepo: IOrderRepository,
+        appService: ApplicationService,
+      ) => new OrderCancellationService(orderRepo, appService),
+      inject: ['IOrderRepository', ApplicationService],
     },
     {
       provide: PartnerService,
