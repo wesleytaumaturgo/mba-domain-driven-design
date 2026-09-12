@@ -30,6 +30,9 @@ export class OfferSpotToWaitingCustomerHandler implements IDomainEventHandler {
 
     await this.waitingListRepo.add(waitingList);
     await this.domainEventManager.publish(waitingList);
+    // snapshot único de aggregateRoots em application.service.ts:14 não alcança agregado
+    // adicionado dentro da cascata de handlers — publica aqui, igual ao publish() acima (B3/A11)
+    await this.domainEventManager.publishForIntegrationEvent(waitingList);
   }
 
   static listensTo(): string[] {

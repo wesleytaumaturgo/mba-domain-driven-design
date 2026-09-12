@@ -24,6 +24,7 @@ import { CustomerService } from '../@core/events/application/customer.service';
 import { EventService } from '../@core/events/application/event.service';
 import { OrderService } from '../@core/events/application/order.service';
 import { OrderCancellationService } from '../@core/events/application/order-cancellation.service';
+import { WaitingListService } from '../@core/events/application/waiting-list.service';
 import { PaymentGateway } from '../@core/events/application/payment.gateway';
 import { IPartnerRepository } from '../@core/events/domain/repositories/partner-repository.interface';
 import { PartnersController } from './partners/partners.controller';
@@ -32,21 +33,25 @@ import { EventsController } from './events/events.controller';
 import { EventSectionsController } from './events/event-sections.controller';
 import { EventSpotsController } from './events/event-spots.controller';
 import { OrdersController } from './orders/orders.controller';
+import { WaitingListsController } from './waiting-lists/waiting-lists.controller';
 import { ApplicationModule } from '../application/application.module';
 import { ApplicationService } from '../@core/common/application/application.service';
 import { DomainEventManager } from '../@core/common/domain/domain-event-manager';
 import { PartnerCreated } from '../@core/events/domain/events/domain-events/partner-created.event';
+import { SpotOfferedToWaitingCustomer } from '../@core/events/domain/events/domain-events/spot-offered-to-waiting-customer.event';
 import { MyHandlerHandler } from '../@core/events/application/handlers/my-handler.handler';
 import { ReleaseSpotOnOrderCancelledHandler } from '../@core/events/application/handlers/release-spot-on-order-cancelled.handler';
 import { OfferSpotToWaitingCustomerHandler } from '../@core/events/application/handlers/offer-spot-to-waiting-customer.handler';
 import { IEventRepository } from '../@core/events/domain/repositories/event-repository.interface';
 import { ISpotReservationRepository } from '../@core/events/domain/repositories/spot-reservation-repository.interface';
 import { IWaitingListRepository } from '../@core/events/domain/repositories/waiting-list-repository.interface';
+import { ICustomerRepository } from '../@core/events/domain/repositories/customer-repository.interface';
 import { ModuleRef } from '@nestjs/core';
 import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { IIntegrationEvent } from '../@core/common/domain/integration-event';
 import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/integration-events/partner-created.int-events';
+import { SpotOfferedToWaitingCustomerIntegrationEvent } from '../@core/events/domain/events/integration-events/spot-offered-to-waiting-customer.int-events';
 
 @Module({
   imports: [
@@ -179,6 +184,27 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       ],
     },
     {
+      provide: WaitingListService,
+      useFactory: (
+        waitingListRepo: IWaitingListRepository,
+        eventRepo: IEventRepository,
+        customerRepo: ICustomerRepository,
+        appService: ApplicationService,
+      ) =>
+        new WaitingListService(
+          waitingListRepo,
+          eventRepo,
+          customerRepo,
+          appService,
+        ),
+      inject: [
+        'IWaitingListRepository',
+        'IEventRepository',
+        'ICustomerRepository',
+        ApplicationService,
+      ],
+    },
+    {
       provide: OfferSpotToWaitingCustomerHandler,
       useFactory: (
         waitingListRepo: IWaitingListRepository,
@@ -198,6 +224,7 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
     EventSectionsController,
     EventSpotsController,
     OrdersController,
+    WaitingListsController,
   ],
 })
 export class EventsModule implements OnModuleInit {
@@ -241,6 +268,15 @@ export class EventsModule implements OnModuleInit {
       async (event) => {
         console.log('integration events');
         const integrationEvent = new PartnerCreatedIntegrationEvent(event);
+        await this.integrationEventsQueue.add(integrationEvent);
+      },
+    );
+    this.domainEventManager.registerForIntegrationEvent(
+      SpotOfferedToWaitingCustomer.name,
+      async (event) => {
+        console.log('integration events');
+        const integrationEvent =
+          new SpotOfferedToWaitingCustomerIntegrationEvent(event);
         await this.integrationEventsQueue.add(integrationEvent);
       },
     );
