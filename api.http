@@ -31,6 +31,18 @@ Content-Type: application/json
 @customer_id = 61f0ff6e-0bb1-4635-8899-4b88ce46975b
 
 ###
+POST http://localhost:3000/customers
+Content-Type: application/json
+
+{
+    "name": "Customer 2",
+    "cpf": "529.982.247-25"
+}
+
+###
+@customer_b_id = 61f0ff6e-0bb1-4635-8899-4b88ce46975c
+
+###
 GET http://localhost:3000/events
 
 ###
@@ -103,18 +115,6 @@ Content-Type: application/json
 
 ###
 @order_id = 192bcb2c-7edb-4359-871e-ddabf784d0e0
-
-###
-POST http://localhost:3000/customers
-Content-Type: application/json
-
-{
-    "name": "Customer 2",
-    "cpf": "529.982.247-25"
-}
-
-###
-@customer_b_id = 61f0ff6e-0bb1-4635-8899-4b88ce46975c
 
 ###
 POST http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/waiting-list

@@ -72,7 +72,8 @@ Ordem para reproduzir o fluxo completo com o arquivo [`api.http`](api.http) (ext
    `PUT /events/{event_id}/publish-all`.
 3. `POST /events/{event_id}/orders` pelo cliente A — reserva o único lugar. Observe `status: "PAID"` na resposta.
 4. `POST /events/{event_id}/sections/{section_id}/waiting-list` pelo cliente B — agora aceito (a seção está
-   esgotada); antes do passo 3 esta mesma chamada responde 500 `Section is not sold out`.
+   esgotada); antes do passo 3 esta mesma chamada responde 500 (mensagem `Section is not sold out` só no
+   log — limitação 2).
 5. `POST /events/{event_id}/orders/{order_id}/cancel` pelo pedido do cliente A.
 6. `GET /events/{event_id}/sections/{section_id}/waiting-list` — a entrada do cliente B mudou de
    `"status":"PENDING"` para `"status":"NOTIFIED"`.
@@ -82,9 +83,13 @@ Chaves literais a observar em cada resposta: `reserved` (spots), `status` (order
 `position` (entradas da fila).
 
 Os ids de partner/customer/event/section/spot/order usados nos requests de `api.http` são placeholders —
-substitua cada um pelo id retornado na resposta do request anterior, seguindo a ordem em que os requests
-aparecem no arquivo (que corresponde a esta mesma ordem do roteiro). Os requests podem ser enviados por
-qualquer cliente HTTP capaz de reproduzir o mesmo método, URL e corpo, não apenas pela extensão REST Client.
+substitua cada um pelo id retornado na resposta do request anterior. O arquivo segue a ordem do roteiro do
+enunciado: partner → 2 customers → event → section → publish-all → order → join (waiting-list) → list
+(waiting-list) → cancel, com o único `GET .../spots` posicionado entre os requests da seção e o do pedido;
+para observar o passo 7 do roteiro acima (lugar liberado após o cancelamento), reenvie manualmente esse
+mesmo `GET .../spots` depois do `POST .../cancel`, já que o arquivo não repete a linha. Os requests podem
+ser enviados por qualquer cliente HTTP capaz de reproduzir o mesmo método, URL e corpo, não apenas pela
+extensão REST Client.
 
 ### Modelo
 
@@ -144,12 +149,17 @@ genérica. A mensagem de domínio só é visível do lado do servidor, no log (`
 
 ### Limitações e decisões
 
-1. **A suíte derruba a tabela `stored_event`.** Cada spec de infraestrutura chama
-   `orm.schema.refreshDatabase()` com a lista de `entities` da sua própria `MikroORM.init()`, e nenhum
-   registra `StoredEventSchema`
+1. **A suíte não derruba a tabela `stored_event`; as demais ficam com dados residuais.** Cada spec de
+   infraestrutura chama `orm.schema.refreshDatabase()` com a lista de `entities` da sua própria
+   `MikroORM.init()`, e nenhum registra `StoredEventSchema`
    (`apps/mba-ddd-venda-ingresso/src/@core/events/infra/db/repositories/__tests__/waiting-list-mysql.repository.spec.ts:43`).
-   Rodar a suíte apaga a tabela; por isso a rotina obrigatória é sempre `npm test && npx mikro-orm schema:fresh --run`,
-   nunca só `npm test`.
+   Medido: com o schema recém-recriado (todas as tabelas em 0, exceto `stored_event` com 1 linha marcadora
+   inserida manualmente), a suíte completa (`npm test`, 42 passed) termina com `stored_event` ainda em 1
+   linha — a marcadora, intacta — enquanto `event`, `event_section`, `order`, `partner`,
+   `spot_reservation`, `waiting_list` e `waiting_list_entry` saem de 0 para 1-2 linhas cada,
+   `event_spot` para 1000, e só `customer` volta a 0. A suíte não limpa esse resíduo depois de si; por
+   isso a rotina obrigatória continua sendo sempre `npm test && npx mikro-orm schema:fresh --run`, nunca
+   só `npm test` — sem o `schema:fresh`, a próxima rodada manual (`api.http`) herdaria essas linhas.
 2. **Erro de domínio vira HTTP 500, com corpo genérico.** Não há filtro de exceção customizado registrado
    (`apps/mba-ddd-venda-ingresso/src/main.ts`) mapeando `Error` de domínio para um código HTTP mais
    específico (400/404/409); o filtro padrão do Nest devolve sempre
@@ -171,16 +181,20 @@ genérica. A mensagem de domínio só é visível do lado do servidor, no log (`
    (`apps/mba-ddd-venda-ingresso/src/@core/events/domain/events/domain-events/event-marked-sport-as-reserved.event.ts:6`) —
    corrigir o nome quebraria compatibilidade com o `type_name` já gravado em `stored_event` por entregas
    anteriores, sem necessidade para esta feature.
-6. **`EventSection.isSoldOut()` de uma seção com 0 lugares retorna `true`**
-   (`apps/mba-ddd-venda-ingresso/src/@core/events/domain/entities/event-section.ts:146-148`, `.every()`
-   sobre coleção vazia) — vácuo lógico esperado do `Array.prototype.every`, não tratado como caso especial
-   porque o fluxo de criação de seção não permite `total_spots: 0` para conseguir gerar essa entrada.
+6. **`EventSection.isSoldOut()` de uma seção com 0 lugares retorna `true`.** A API aceita `POST
+   /events/{event_id}/sections` com `total_spots: 0` (medido: sem erro, `secoes:1`, `total_spots:0`,
+   `isSoldOut:true`); `isSoldOut()` é `.every()` sobre a coleção de lugares
+   (`apps/mba-ddd-venda-ingresso/src/@core/events/domain/entities/event-section.ts:146-148`) — vácuo lógico
+   esperado do `Array.prototype.every` sobre coleção vazia, não tratado como caso especial. Consequência:
+   `POST /events/{event_id}/sections/{section_id}/waiting-list` nessa seção passa a validação de
+   esgotamento (não recebe `Section is not sold out`), mesmo sem nenhum lugar reservado.
 7. **A rota de cancelamento é aninhada em `:event_id`, mas nada valida que o pedido pertence àquele
    evento** — `Order` não modela `event_id`, só `event_spot_id`
    (`apps/mba-ddd-venda-ingresso/src/@core/events/domain/entities/order.entity.ts:21`); o `event_id` da
    rota chega ao `OrderCancellationService.cancel` e não é usado
    (`apps/mba-ddd-venda-ingresso/src/@core/events/application/order-cancellation.service.ts:10-11`, comentário
-   no próprio código) nem ao `OrdersController.cancel`
+   no próprio código) nem ao `OrdersController.cancel`, que repassa o `event_id` do parâmetro de rota
+   direto ao serviço sem validar
    (`apps/mba-ddd-venda-ingresso/src/events/orders/orders.controller.ts:35-40`).
 8. **`ApplicationService.finish()` publica só o agregado do snapshot inicial** — `getAggregateRoots()` é
    lido uma vez, antes de qualquer `publish()`
@@ -195,7 +209,8 @@ genérica. A mensagem de domínio só é visível do lado do servidor, no log (`
    `commit()` vem antes da integração.
 9. **`event_id`/`section_id` da `WaitingList` chegam como string crua na hidratação do MikroORM**, não
    como value object — efeito de `reference: 'm:1', mapToPk: true`
-   (`apps/mba-ddd-venda-ingresso/src/@core/events/infra/db/schemas.ts:210,215`). O
+   (`apps/mba-ddd-venda-ingresso/src/@core/events/infra/db/schemas.ts:212,214` para `event_id` e
+   `schemas.ts:218,220` para `section_id`). O
    `SpotOfferedToWaitingCustomerIntegrationEvent` usa uma função `idValue()` na fronteira para aceitar os
    dois formatos (string ou value object) sem alargar o tipo declarado no domínio
    (`apps/mba-ddd-venda-ingresso/src/@core/events/domain/events/integration-events/spot-offered-to-waiting-customer.int-events.ts:8-10`).
