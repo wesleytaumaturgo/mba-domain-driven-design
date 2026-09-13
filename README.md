@@ -81,6 +81,11 @@ Ordem para reproduzir o fluxo completo com o arquivo [`api.http`](api.http) (ext
 Chaves literais a observar em cada resposta: `reserved` (spots), `status` (orders e entradas da fila),
 `position` (entradas da fila).
 
+Os ids de partner/customer/event/section/spot/order usados nos requests de `api.http` são placeholders —
+substitua cada um pelo id retornado na resposta do request anterior, seguindo a ordem em que os requests
+aparecem no arquivo (que corresponde a esta mesma ordem do roteiro). Os requests podem ser enviados por
+qualquer cliente HTTP capaz de reproduzir o mesmo método, URL e corpo, não apenas pela extensão REST Client.
+
 ### Modelo
 
 **Fronteira do agregado `WaitingList`.** A lista de espera é um agregado próprio, fora do `Event`, um por

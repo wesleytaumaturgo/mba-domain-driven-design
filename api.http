@@ -105,9 +105,6 @@ Content-Type: application/json
 @order_id = 192bcb2c-7edb-4359-871e-ddabf784d0e0
 
 ###
-POST http://localhost:3000/events/{{event_id}}/orders/{{order_id}}/cancel
-
-###
 POST http://localhost:3000/customers
 Content-Type: application/json
 
@@ -129,3 +126,6 @@ Content-Type: application/json
 
 ###
 GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/waiting-list
+
+###
+POST http://localhost:3000/events/{{event_id}}/orders/{{order_id}}/cancel

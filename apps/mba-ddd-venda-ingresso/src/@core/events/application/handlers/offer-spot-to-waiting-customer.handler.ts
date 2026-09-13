@@ -10,7 +10,7 @@ export class OfferSpotToWaitingCustomerHandler implements IDomainEventHandler {
   ) {}
 
   async handle(event: EventSpotReleased): Promise<void> {
-    // `aggregate_id` do EventSpotReleased é o event_id (G3-a D7)
+    // `aggregate_id` do EventSpotReleased é o event_id
     const waitingList = await this.waitingListRepo.findByEventAndSection(
       event.aggregate_id,
       event.section_id,
@@ -31,7 +31,7 @@ export class OfferSpotToWaitingCustomerHandler implements IDomainEventHandler {
     await this.waitingListRepo.add(waitingList);
     await this.domainEventManager.publish(waitingList);
     // snapshot único de aggregateRoots em application.service.ts:14 não alcança agregado
-    // adicionado dentro da cascata de handlers — publica aqui, igual ao publish() acima (B3/A11)
+    // adicionado dentro da cascata de handlers — publica aqui, igual ao publish() acima
     await this.domainEventManager.publishForIntegrationEvent(waitingList);
   }
 

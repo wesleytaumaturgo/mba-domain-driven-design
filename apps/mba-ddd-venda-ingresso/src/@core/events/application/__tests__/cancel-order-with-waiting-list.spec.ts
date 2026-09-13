@@ -214,7 +214,7 @@ describe('cancelamento do pedido libera o lugar e notifica a fila', () => {
 
     // força a fila e o agregado Event a serem recarregados do banco pelos
     // handlers (não reaproveitados da identity map montada nesta fixture) —
-    // é essa hidratação que expõe event_id/section_id como string (8.2-b)
+    // é essa hidratação que expõe event_id/section_id como string
     ctx.em.clear();
 
     await ctx.orderCancellationService.cancel({
